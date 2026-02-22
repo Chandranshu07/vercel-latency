@@ -45,14 +45,11 @@ DATA = [
 
 class handler(BaseHTTPRequestHandler):
 
-    def _set_cors_headers(self):
+    def do_OPTIONS(self):
+        self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self._set_cors_headers()
         self.end_headers()
 
     def do_POST(self):
@@ -85,7 +82,9 @@ class handler(BaseHTTPRequestHandler):
             response = json.dumps(result).encode()
 
             self.send_response(200)
-            self._set_cors_headers()
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
@@ -94,7 +93,9 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             error = json.dumps({"error": str(e)}).encode()
             self.send_response(500)
-            self._set_cors_headers()
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(error)))
             self.end_headers()
