@@ -42,19 +42,20 @@ DATA = [
   {"region":"amer","latency_ms":110.03,"uptime_pct":97.583},
 ]
 
-def add_cors(response):
+def cors(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
-@app.route("/", methods=["POST", "OPTIONS"])
-@app.route("/api/index", methods=["POST", "OPTIONS"])
+@app.route("/", methods=["GET","POST","OPTIONS"])
+@app.route("/api/index", methods=["GET","POST","OPTIONS"])
 def index():
     if request.method == "OPTIONS":
-        return add_cors(make_response("", 200))
-
-    body = request.get_json()
+        return cors(make_response("", 204))
+    if request.method == "GET":
+        return cors(make_response(jsonify({"status":"ok"}), 200))
+    body = request.get_json(force=True)
     regions = body.get("regions", [])
     threshold_ms = body.get("threshold_ms", 180)
     result = {}
@@ -71,7 +72,7 @@ def index():
             "avg_uptime":  round(float(np.mean(uptimes)), 4),
             "breaches":    int(sum(1 for l in latencies if l > threshold_ms))
         }
-    return add_cors(make_response(jsonify(result), 200))
+    return cors(make_response(jsonify(result), 200))
 
 if __name__ == "__main__":
     app.run()
