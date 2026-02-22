@@ -42,19 +42,16 @@ DATA = [
     {"region":"amer","latency_ms":110.03,"uptime_pct":97.583},
 ]
 
-def handler(request):
+def handler(request, response):
 
-    # Handle preflight
+    # CORS headers for every response
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+
     if request.method == "OPTIONS":
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": ""
-        }
+        response.status_code = 200
+        return response.send("")
 
     try:
         body = request.get_json()
@@ -80,20 +77,9 @@ def handler(request):
                 "breaches": int(sum(1 for l in latencies if l > threshold_ms))
             }
 
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps(result)
-        }
+        response.status_code = 200
+        return response.send(json.dumps(result))
 
     except Exception as e:
-        return {
-            "statusCode": 500,
-            "headers": {
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps({"error": str(e)})
-        }
+        response.status_code = 500
+        return response.send(json.dumps({"error": str(e)}))
