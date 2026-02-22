@@ -1,27 +1,36 @@
 import json
+import os
 import numpy as np
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from mangum import Mangum
 
-with open("data/latency.json") as f:
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'latency.json')
+with open(DATA_PATH) as f:
     RAW_DATA = json.load(f)
 
-def handler(request):
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Content-Type": "application/json"
-    }
+@app.post("/")
+async def root(request: Request):
+    return await compute(request)
 
-    if request.method == "OPTIONS":
-        return Response("", 200, headers)
+@app.post("/api/index")
+async def api_index(request: Request):
+    return await compute(request)
 
-    if request.method != "POST":
-        return Response("Method not allowed", 405, headers)
-
-    body = request.json()
+async def compute(request: Request):
+    body = await request.json()
     regions = body.get("regions", [])
     threshold_ms = body.get("threshold_ms", 180)
-
     result = {}
     for region in regions:
         records = [r for r in RAW_DATA if r["region"] == region]
@@ -36,5 +45,6 @@ def handler(request):
             "avg_uptime": round(float(np.mean(uptimes)), 4),
             "breaches": int(sum(1 for l in latencies if l > threshold_ms))
         }
+    return JSONResponse(content=result)
 
-    return Response(json.dumps(result), 200, headers)
+handler = Mangum(app)
