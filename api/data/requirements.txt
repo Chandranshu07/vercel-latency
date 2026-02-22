@@ -1,0 +1,5 @@
+Click **"Add file"** → **"Create new file"**, type: `requirements.txt`
+
+Paste:
+```
+numpy
