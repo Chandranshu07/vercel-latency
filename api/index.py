@@ -1,7 +1,6 @@
-from flask import Flask, request, jsonify, make_response
+from http.server import BaseHTTPRequestHandler
+import json
 import numpy as np
-
-app = Flask(__name__)
 
 DATA = [
   {"region":"apac","latency_ms":153.82,"uptime_pct":99.226},
@@ -42,43 +41,48 @@ DATA = [
   {"region":"amer","latency_ms":110.03,"uptime_pct":97.583},
 ]
 
-CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-}
+class handler(BaseHTTPRequestHandler):
 
-@app.after_request
-def after_request(response):
-    for k, v in CORS_HEADERS.items():
-        response.headers[k] = v
-    return response
+    def _cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
-@app.route("/", methods=["GET","POST","OPTIONS"])
-@app.route("/api/index", methods=["GET","POST","OPTIONS"])
-def index():
-    if request.method == "OPTIONS":
-        return make_response("", 204)
-    if request.method == "GET":
-        return jsonify({"status": "ok"})
-    body = request.get_json(force=True)
-    regions = body.get("regions", [])
-    threshold_ms = body.get("threshold_ms", 180)
-    result = {}
-    for region in regions:
-        records = [r for r in DATA if r["region"] == region]
-        if not records:
-            result[region] = None
-            continue
-        latencies = [r["latency_ms"] for r in records]
-        uptimes = [r["uptime_pct"] for r in records]
-        result[region] = {
-            "avg_latency": round(float(np.mean(latencies)), 4),
-            "p95_latency": round(float(np.percentile(latencies, 95)), 4),
-            "avg_uptime":  round(float(np.mean(uptimes)), 4),
-            "breaches":    int(sum(1 for l in latencies if l > threshold_ms))
-        }
-    return jsonify(result)
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self._cors()
+        self.end_headers()
 
-if __name__ == "__main__":
-    app.run()
+    def do_GET(self):
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "ok"}).encode())
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length))
+        regions = body.get("regions", [])
+        threshold_ms = body.get("threshold_ms", 180)
+        result = {}
+        for region in regions:
+            records = [r for r in DATA if r["region"] == region]
+            if not records:
+                result[region] = None
+                continue
+            latencies = [r["latency_ms"] for r in records]
+            uptimes = [r["uptime_pct"] for r in records]
+            result[region] = {
+                "avg_latency": round(float(np.mean(latencies)), 4),
+                "p95_latency": round(float(np.percentile(latencies, 95)), 4),
+                "avg_uptime":  round(float(np.mean(uptimes)), 4),
+                "breaches":    int(sum(1 for l in latencies if l > threshold_ms))
+            }
+        body_out = json.dumps(result).encode()
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body_out)))
+        self.end_headers()
+        self.wfile.write(body_out)
