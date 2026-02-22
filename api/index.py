@@ -1,9 +1,7 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, make_response
 import numpy as np
 
 app = Flask(__name__)
-CORS(app)
 
 DATA = [
   {"region":"apac","latency_ms":153.82,"uptime_pct":99.226},
@@ -44,11 +42,18 @@ DATA = [
   {"region":"amer","latency_ms":110.03,"uptime_pct":97.583},
 ]
 
-@app.route("/", methods=["GET","POST","OPTIONS"])
-@app.route("/api/index", methods=["GET","POST","OPTIONS"])
+def add_cors(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+@app.route("/", methods=["POST", "OPTIONS"])
+@app.route("/api/index", methods=["POST", "OPTIONS"])
 def index():
-    if request.method in ("GET","OPTIONS"):
-        return jsonify({"status":"ok"})
+    if request.method == "OPTIONS":
+        return add_cors(make_response("", 200))
+
     body = request.get_json()
     regions = body.get("regions", [])
     threshold_ms = body.get("threshold_ms", 180)
@@ -66,7 +71,7 @@ def index():
             "avg_uptime":  round(float(np.mean(uptimes)), 4),
             "breaches":    int(sum(1 for l in latencies if l > threshold_ms))
         }
-    return jsonify(result)
+    return add_cors(make_response(jsonify(result), 200))
 
 if __name__ == "__main__":
     app.run()
