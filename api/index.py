@@ -43,22 +43,15 @@ DATA = [
 
 class handler(BaseHTTPRequestHandler):
 
-    def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-
     def do_OPTIONS(self):
         self.send_response(200)
-        self._cors()
         self.end_headers()
 
     def do_GET(self):
         self.send_response(200)
-        self._cors()
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(json.dumps({"status": "ok"}).encode())
+        self.wfile.write(json.dumps({"status":"ok"}).encode())
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
@@ -79,10 +72,9 @@ class handler(BaseHTTPRequestHandler):
                 "avg_uptime":  round(float(np.mean(uptimes)), 4),
                 "breaches":    int(sum(1 for l in latencies if l > threshold_ms))
             }
-        body_out = json.dumps(result).encode()
+        out = json.dumps(result).encode()
         self.send_response(200)
-        self._cors()
         self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body_out)))
+        self.send_header("Content-Length", str(len(out)))
         self.end_headers()
-        self.wfile.write(body_out)
+        self.wfile.write(out)
