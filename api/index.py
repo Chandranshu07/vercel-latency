@@ -1,3 +1,4 @@
+from http.server import BaseHTTPRequestHandler
 import json
 import numpy as np
 
@@ -42,44 +43,59 @@ DATA = [
     {"region":"amer","latency_ms":110.03,"uptime_pct":97.583},
 ]
 
-def handler(request, response):
+class handler(BaseHTTPRequestHandler):
 
-    # CORS headers for every response
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    def _set_cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
-    if request.method == "OPTIONS":
-        response.status_code = 200
-        return response.send("")
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self._set_cors_headers()
+        self.end_headers()
 
-    try:
-        body = request.get_json()
-        regions = body.get("regions", [])
-        threshold_ms = body.get("threshold_ms", 180)
+    def do_POST(self):
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(content_length))
 
-        result = {}
+            regions = body.get("regions", [])
+            threshold_ms = body.get("threshold_ms", 180)
 
-        for region in regions:
-            records = [r for r in DATA if r["region"] == region]
+            result = {}
 
-            if not records:
-                result[region] = None
-                continue
+            for region in regions:
+                records = [r for r in DATA if r["region"] == region]
 
-            latencies = [r["latency_ms"] for r in records]
-            uptimes = [r["uptime_pct"] for r in records]
+                if not records:
+                    result[region] = None
+                    continue
 
-            result[region] = {
-                "avg_latency": float(np.mean(latencies)),
-                "p95_latency": float(np.percentile(latencies, 95)),
-                "avg_uptime": float(np.mean(uptimes)),
-                "breaches": int(sum(1 for l in latencies if l > threshold_ms))
-            }
+                latencies = [r["latency_ms"] for r in records]
+                uptimes = [r["uptime_pct"] for r in records]
 
-        response.status_code = 200
-        return response.send(json.dumps(result))
+                result[region] = {
+                    "avg_latency": float(np.mean(latencies)),
+                    "p95_latency": float(np.percentile(latencies, 95)),
+                    "avg_uptime": float(np.mean(uptimes)),
+                    "breaches": int(sum(1 for l in latencies if l > threshold_ms))
+                }
 
-    except Exception as e:
-        response.status_code = 500
-        return response.send(json.dumps({"error": str(e)}))
+            response = json.dumps(result).encode()
+
+            self.send_response(200)
+            self._set_cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+
+        except Exception as e:
+            error = json.dumps({"error": str(e)}).encode()
+            self.send_response(500)
+            self._set_cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(error)))
+            self.end_headers()
+            self.wfile.write(error)
